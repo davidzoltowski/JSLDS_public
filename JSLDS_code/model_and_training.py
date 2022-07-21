@@ -324,7 +324,7 @@ def staylor_rnn(rnn, params, order, h_tm1, h_approx_tm1, x_t, x_star):
   o_t = affine(params['out'], h_t)
   return h_star, F_star, h_t, h_approx_t, o_t, o_approx_t
 
-def staylor_rnn_learn_xstar(rnn, params, order, h_tm1, h_approx_tm1, x_t):
+def staylor_rnn_learn_x_star(rnn, params, order, h_tm1, h_approx_tm1, x_t):
   """Run the switching taylor rnn, with learned input expansion point."""
   hx = jnp.concatenate([h_approx_tm1, x_t])
   hx_star = mlp(params['mlp'], hx)
@@ -351,10 +351,10 @@ def jslds_rnn_x_star_is_zeros(rnn, params, h_tm1, h_approx_tm1, x_t):
   x_star = jnp.zeros_like(x_t)
   return staylor_rnn(rnn, params, 1, h_tm1, h_approx_tm1, x_t, x_star)
 
-def jslds_rnn_learn_xstar(rnn, params, h_tm1, h_approx_tm1, x_t):
+def jslds_rnn_learn_x_star(rnn, params, h_tm1, h_approx_tm1, x_t):
   """define JSLDS with x_star set to all zeros
     (this is the typical usage) """
-  return staylor_rnn_learn_xstar(rnn, params, 1, h_tm1, h_approx_tm1, x_t)
+  return staylor_rnn_learn_x_star(rnn, params, 1, h_tm1, h_approx_tm1, x_t)
 
 
 def jslds_rnn_x_star_context(rnn, params, h_tm1, h_approx_tm1, x_t):
