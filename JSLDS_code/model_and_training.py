@@ -368,7 +368,7 @@ def jslds_rnn_scan(rnn, jslds_rnn, params, state, x_t):
   """Run the JSLDS network 1 step adapting the inputs and outputs for scan."""
   h_tm1, h_approx_tm1 = state
   state_and_returns = jslds_rnn(rnn, params, h_tm1, h_approx_tm1, x_t)
-  h_star, F_star, h_t, h_approx_t, o_t, o_approx_t = state_and_returns
+  h_star, F_star, h_t, h_approx_t, o_t, o_approx_t, x_star = state_and_returns
   state = h_t, h_approx_t
   return state, state_and_returns
 
