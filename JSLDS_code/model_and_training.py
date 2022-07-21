@@ -438,7 +438,7 @@ def loss(params, inputs_bxtxu, targets_bxtxo, targets_mask_t,
           'l2': l2_loss, 'fixed_point': fp_loss, 'taylor': fo_loss,
           'xe_loss': xe_loss}
 
-loss_jit = jax.jit(loss, static_argnums=(9,10,))
+loss_jit = jax.jit(loss, static_argnums=(10,11,))
 
 
 
