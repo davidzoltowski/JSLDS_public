@@ -328,7 +328,7 @@ def staylor_rnn_learn_x_star(rnn, params, order, h_tm1, h_approx_tm1, x_t):
   """Run the switching taylor rnn, with learned input expansion point."""
   hx = jnp.concatenate([h_approx_tm1, x_t])
   hx_star = mlp(params['mlp'], hx)
-  h_star, x_star = jnp.split(hx_star, [params['rnn']['n'], ])
+  h_star, x_star = jnp.split(hx_star, [100, ]) #TODO FIX HARD CODE, assumes N=100 units
   # import ipdb; ipdb.set_trace()
   F_star = rnn(params['rnn'], h_star, x_star)
 
@@ -343,7 +343,7 @@ def staylor_rnn_learn_x_star(rnn, params, order, h_tm1, h_approx_tm1, x_t):
 
   h_t = rnn(params['rnn'], h_tm1, x_t)
   o_t = affine(params['out'], h_t)
-  return h_star, F_star, h_t, h_approx_t, o_t, o_approx_t
+  return h_star, F_star, h_t, h_approx_t, o_t, o_approx_t, x_star
 
 def jslds_rnn_x_star_is_zeros(rnn, params, h_tm1, h_approx_tm1, x_t):
   """define JSLDS with x_star set to all zeros
@@ -387,12 +387,35 @@ def get_batch_rnn_run_fun(rnn, jslds_rnn):
                   in_axes=(None, 0))
 
 
+# def loss(params, inputs_bxtxu, targets_bxtxo, targets_mask_t, 
+#          out_nl_reg, out_jslds_reg, taylor_reg, fp_reg, l2_reg, rnn, jslds_rnn):
+#   """Compute the least squares loss of the output, plus L2 regularization."""
+#   batch_rnn_run = get_batch_rnn_run_fun(rnn, jslds_rnn)
+#   hstar_bxtxn, F0_bxtxn, h_bxtxn, h_approx_bxtxn, o_bxtxo, o_approx_bxtxo = \
+#       batch_rnn_run(params, inputs_bxtxu)
+
+#   l2_loss = l2_reg * optimizers.l2_norm(params)**2
+#   fp_loss = fp_reg * jnp.mean((F0_bxtxn - hstar_bxtxn)**2)
+
+#   fo_loss = taylor_reg * jnp.mean((h_bxtxn - h_approx_bxtxn)**2)
+
+#   o_bxsxo = o_bxtxo[:, targets_mask_t, :]
+#   o_approx_bxsxo = o_approx_bxtxo[:, targets_mask_t, :]
+#   targets_bxsxo = targets_bxtxo[:, targets_mask_t, :]
+
+#   lms_nl_loss = out_nl_reg * jnp.mean((o_bxsxo - targets_bxsxo)**2)
+#   lms_jslds_loss = out_jslds_reg * jnp.mean((o_approx_bxsxo - targets_bxsxo)**2)
+
+#   total_loss = lms_jslds_loss + lms_nl_loss + l2_loss + fp_loss + fo_loss
+#   return {'total': total_loss,
+#           'lms_jslds': lms_jslds_loss, 'lms_nl': lms_nl_loss,
+#           'l2': l2_loss, 'fixed_point': fp_loss, 'taylor': fo_loss}
 def loss(params, inputs_bxtxu, targets_bxtxo, targets_mask_t, 
          out_nl_reg, out_jslds_reg, taylor_reg, fp_reg, l2_reg, rnn, jslds_rnn):
   """Compute the least squares loss of the output, plus L2 regularization."""
   batch_rnn_run = get_batch_rnn_run_fun(rnn, jslds_rnn)
-  hstar_bxtxn, F0_bxtxn, h_bxtxn, h_approx_bxtxn, o_bxtxo, o_approx_bxtxo = \
-      batch_rnn_run(params, inputs_bxtxu)
+  hstar_bxtxn, F0_bxtxn, h_bxtxn, h_approx_bxtxn, o_bxtxo, o_approx_bxtxo, \
+      xstar_bxtxn = batch_rnn_run(params, inputs_bxtxu)
 
   l2_loss = l2_reg * optimizers.l2_norm(params)**2
   fp_loss = fp_reg * jnp.mean((F0_bxtxn - hstar_bxtxn)**2)
@@ -410,7 +433,6 @@ def loss(params, inputs_bxtxu, targets_bxtxo, targets_mask_t,
   return {'total': total_loss,
           'lms_jslds': lms_jslds_loss, 'lms_nl': lms_nl_loss,
           'l2': l2_loss, 'fixed_point': fp_loss, 'taylor': fo_loss}
-
 
 loss_jit = jax.jit(loss, static_argnums=(9,10,))
 
@@ -446,15 +468,16 @@ def run_trials(batch_run_fun, inputs_targets_h0s_fun, nbatches, batch_size, key)
   targets = []
   masks = []
   h0s = []
+  x_stars = []
   for _ in range(nbatches):
     key, skey = jax.random.split(key)
     keys = jax.random.split(skey, batch_size)
     input_b, target_b, masks_b, h0s_b = inputs_targets_h0s_fun(keys)
     if h0s_b is None:
-      h_star_b, F0_star_b, h_b, h_approx_b, o_b, o_approx_b = \
+      h_star_b, F0_star_b, h_b, h_approx_b, o_b, o_approx_b, x_star_b = \
           batch_run_fun(input_b)
     else:
-      h_star_b, F0_star_b, h_b, h_approx_b, o_b, o_approx_b = \
+      h_star_b, F0_star_b, h_b, h_approx_b, o_b, o_approx_b, x_star_b = \
           batch_run_fun(input_b, h0s_b)
       h0s.append(h0s_b)
 
@@ -467,6 +490,7 @@ def run_trials(batch_run_fun, inputs_targets_h0s_fun, nbatches, batch_size, key)
     outputs.append(o_approx_b)
     targets.append(target_b)
     masks.append(masks_b)
+    x_stars.append(x_star_b)
 
   trial_dict = {'inputs': np.vstack(inputs),
                 'h_stars': np.vstack(h_stars),
@@ -476,7 +500,8 @@ def run_trials(batch_run_fun, inputs_targets_h0s_fun, nbatches, batch_size, key)
                 'hiddens': np.vstack(hiddens),
                 'outputs': np.vstack(outputs),
                 'targets': np.vstack(targets), 
-                'masks': np.vstack(masks)}
+                'masks': np.vstack(masks),
+                'x_stars': np.vstack(x_stars)}
 
   if h0s_b is not None:
     trial_dict['h0s'] = np.vstack(h0s)
