@@ -411,7 +411,7 @@ def get_batch_rnn_run_fun(rnn, jslds_rnn):
 #           'lms_jslds': lms_jslds_loss, 'lms_nl': lms_nl_loss,
 #           'l2': l2_loss, 'fixed_point': fp_loss, 'taylor': fo_loss}
 def loss(params, inputs_bxtxu, targets_bxtxo, targets_mask_t, 
-         out_nl_reg, out_jslds_reg, taylor_reg, fp_reg, l2_reg, rnn, jslds_rnn):
+         out_nl_reg, out_jslds_reg, taylor_reg, fp_reg, l2_reg, xe_reg, rnn, jslds_rnn):
   """Compute the least squares loss of the output, plus L2 regularization."""
   batch_rnn_run = get_batch_rnn_run_fun(rnn, jslds_rnn)
   hstar_bxtxn, F0_bxtxn, h_bxtxn, h_approx_bxtxn, o_bxtxo, o_approx_bxtxo, \
@@ -422,6 +422,9 @@ def loss(params, inputs_bxtxu, targets_bxtxo, targets_mask_t,
 
   fo_loss = taylor_reg * jnp.mean((h_bxtxn - h_approx_bxtxn)**2)
 
+  # initial loss 
+  xe_loss = xe_reg * jnp.mean((xstar_bxtxn - 0.00)**2) 
+
   o_bxsxo = o_bxtxo[:, targets_mask_t, :]
   o_approx_bxsxo = o_approx_bxtxo[:, targets_mask_t, :]
   targets_bxsxo = targets_bxtxo[:, targets_mask_t, :]
@@ -429,10 +432,11 @@ def loss(params, inputs_bxtxu, targets_bxtxo, targets_mask_t,
   lms_nl_loss = out_nl_reg * jnp.mean((o_bxsxo - targets_bxsxo)**2)
   lms_jslds_loss = out_jslds_reg * jnp.mean((o_approx_bxsxo - targets_bxsxo)**2)
 
-  total_loss = lms_jslds_loss + lms_nl_loss + l2_loss + fp_loss + fo_loss
+  total_loss = lms_jslds_loss + lms_nl_loss + l2_loss + fp_loss + fo_loss + xe_loss
   return {'total': total_loss,
           'lms_jslds': lms_jslds_loss, 'lms_nl': lms_nl_loss,
-          'l2': l2_loss, 'fixed_point': fp_loss, 'taylor': fo_loss}
+          'l2': l2_loss, 'fixed_point': fp_loss, 'taylor': fo_loss,
+          'xe_loss': xe_loss}
 
 loss_jit = jax.jit(loss, static_argnums=(9,10,))
 
