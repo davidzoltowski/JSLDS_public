@@ -444,7 +444,7 @@ loss_jit = jax.jit(loss, static_argnums=(9,10,))
 
 def update_w_gc(i, opt_state, opt_update, get_params, x_bxt, f_bxt, f_mask_bxt,
                 max_grad_norm, out_nl_reg, out_jslds_reg, taylor_reg,
-                fp_reg, l2_reg, rnn, jslds_rnn):
+                fp_reg, l2_reg, xe_reg, rnn, jslds_rnn):
   """Update the parameters w/ gradient clipped, gradient descent updates."""
   params = get_params(opt_state)
 
@@ -457,7 +457,7 @@ def update_w_gc(i, opt_state, opt_update, get_params, x_bxt, f_bxt, f_mask_bxt,
   clipped_grads = optimizers.clip_grads(grads, max_grad_norm)
   return opt_update(i, clipped_grads, opt_state)
 
-update_w_gc_jit = jax.jit(update_w_gc, static_argnums=(2, 3, 13, 14))
+update_w_gc_jit = jax.jit(update_w_gc, static_argnums=(2, 3, 14, 15))
 
 
 def run_trials(batch_run_fun, inputs_targets_h0s_fun, nbatches, batch_size, key):
