@@ -450,7 +450,7 @@ def update_w_gc(i, opt_state, opt_update, get_params, x_bxt, f_bxt, f_mask_bxt,
 
   def training_loss(params):
     return loss(params, x_bxt, f_bxt, f_mask_bxt, out_nl_reg, out_jslds_reg, 
-                taylor_reg, fp_reg, l2_reg, rnn, jslds_rnn)['total']
+                taylor_reg, fp_reg, l2_reg, xe_reg, rnn, jslds_rnn)['total']
 
   grads = jax.grad(training_loss)(params)
 
