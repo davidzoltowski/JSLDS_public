@@ -1,6 +1,5 @@
 import functools
 import jax
-from jax.ops import index_update, index
 from jax.experimental import optimizers
 import jax.numpy as jnp
 import math

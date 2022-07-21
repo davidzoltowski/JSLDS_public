@@ -1,6 +1,5 @@
 import functools
 import jax
-from jax.ops import index_update, index
 from jax.experimental import optimizers
 import jax.numpy as jnp
 import numpy as np
@@ -336,7 +335,7 @@ def jslds_rnn_x_star_context(rnn, params, h_tm1, h_approx_tm1, x_t):
   """define x_star to take static context into account 
   (for context integration) """
   x_star = jnp.zeros_like(x_t)
-  x_star = index_update(x_star, index[2:4], x_t[2:4])
+  x_star = x_star.at[2:4].add(x_t[2:4])
   return staylor_rnn(rnn, params, 1, h_tm1, h_approx_tm1, x_t, x_star)
 
 def jslds_rnn_scan(rnn, jslds_rnn, params, state, x_t):
