@@ -328,8 +328,7 @@ def staylor_rnn_learn_x_star(rnn, params, order, h_tm1, h_approx_tm1, x_t):
   """Run the switching taylor rnn, with learned input expansion point."""
   hx = jnp.concatenate([h_approx_tm1, x_t])
   hx_star = mlp(params['mlp'], hx)
-  h_star, x_star = jnp.split(hx_star, [100, ]) #TODO FIX HARD CODE, assumes N=100 units
-  # import ipdb; ipdb.set_trace()
+  h_star, x_star = jnp.split(hx_star, [h_approx_tm1.shape[0], ])
   F_star = rnn(params['rnn'], h_star, x_star)
 
   # Taylor series expansion includes 0 order, so we subtract it off,
@@ -355,7 +354,6 @@ def jslds_rnn_learn_x_star(rnn, params, h_tm1, h_approx_tm1, x_t):
   """define JSLDS with x_star set to all zeros
     (this is the typical usage) """
   return staylor_rnn_learn_x_star(rnn, params, 1, h_tm1, h_approx_tm1, x_t)
-
 
 def jslds_rnn_x_star_context(rnn, params, h_tm1, h_approx_tm1, x_t):
   """define x_star to take static context into account 
@@ -423,7 +421,9 @@ def loss(params, inputs_bxtxu, targets_bxtxo, targets_mask_t,
   fo_loss = taylor_reg * jnp.mean((h_bxtxn - h_approx_bxtxn)**2)
 
   # initial loss 
-  xe_loss = xe_reg * jnp.mean((xstar_bxtxn - 0.00)**2) 
+  # target is mean input across trial
+  xe_target = jnp.mean(inputs_bxtxu, axis=1, keepdims=True)
+  xe_loss = xe_reg * jnp.mean((xstar_bxtxn - xe_target)**2) 
 
   o_bxsxo = o_bxtxo[:, targets_mask_t, :]
   o_approx_bxsxo = o_approx_bxtxo[:, targets_mask_t, :]
