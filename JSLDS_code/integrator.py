@@ -6,6 +6,7 @@ from functools import partial
 import jax.numpy as np
 from jax import jit, vmap
 from jax import random
+import jax
 import matplotlib.pyplot as plt
 
 def keygen(key, nkeys):
@@ -134,4 +135,46 @@ def plot_batch(ntimesteps, input_bxtxu, target_bxtxo=None, output_bxtxo=None,
     plt.ylabel("|Errors|")
   plt.xlabel('Timesteps')
 
+def build_input_and_target_switch_integration(input_params, key):
+  """Build white noise input and integration targets where context switches within trials."""
+  bias_val, stddev_val, T, ntime = input_params
+  dt = T/ntime
 
+  # Create the white noise input.
+  key, skey = random.split(key)
+  random_sample_1x2 = random.normal(skey, shape=(1, 2))
+  bias_1x2 = bias_val * 2.0 * (random_sample_1x2 - 0.5)
+  stddev = stddev_val / np.sqrt(dt)
+  key, skey = random.split(key)
+  random_samples_tx2 = random.normal(skey, shape=(ntime, 2))
+  noise_tx2 = stddev * random_samples_tx2
+  white_noise_tx2 = bias_1x2 + noise_tx2
+
+  # The context signal is one hot and switches randomly during the trial.
+  con1_tx2 = np.concatenate((np.ones((ntime,1)), np.zeros((ntime,1))), axis=1)
+  con2_tx2 = np.concatenate((np.zeros((ntime,1)), np.ones((ntime,1))), axis=1)
+  key, skey = random.split(key)
+  init_context = random.bernoulli(skey)
+  key, skey = random.split(key)
+  switch_time = random.randint(skey, (), 2, ntime-1)
+  switch_var = np.cumsum(jax.nn.one_hot(switch_time, ntime))
+  context = switch_var * init_context + (1.0 - switch_var) * (1.0 - init_context)
+  context = np.expand_dims(context, axis=1)
+  context_tx2 = np.where(context, con1_tx2, con2_tx2)
+
+  # * dt, intentionally left off to get output scaling in O(1).
+  targets_t = np.cumsum(np.sum(white_noise_tx2 * context_tx2, axis=1))
+  inputs_tx4 = np.concatenate((white_noise_tx2, context_tx2), axis=1)
+  targets_tx1 = np.expand_dims(targets_t, axis=1)
+  targets_mask = np.expand_dims(np.arange(ntime), axis=1)
+  return inputs_tx4, targets_tx1, targets_mask
+
+# Now batch it and jit.
+build_input_and_target_switch = build_input_and_target_switch_integration
+
+def build_inputs_and_targets_switch(input_params, keys):
+  f = partial(build_input_and_target_switch, input_params)
+  f_vmap = vmap(f, (0,))
+  return f_vmap(keys)
+
+build_input_and_targets_switch_jit = jit(build_input_and_target_switch, static_argnums=(0,))
