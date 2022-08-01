@@ -173,7 +173,6 @@ def get_subspace_fixed_bias_learn_xstar(params,rnn_fun, hiddens_approx_c, hstars
   # hstar_jac = num_fps.compute_jacobians(rnn_fun_h, hstars_c)
   rnn_fun_h = lambda h, x : rnn_fun(params['rnn'], h, x)
   hstar_jac = num_fps.compute_jacobians_xs(rnn_fun_h, hstars_c, xstars_c)
-  import ipdb; ipdb.set_trace()
   eig_decomps_c = num_fps.compute_eigenvalue_decomposition(hstar_jac, sort_by='real',
                                     do_compute_lefts=True)
   

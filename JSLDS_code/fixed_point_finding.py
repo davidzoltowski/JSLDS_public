@@ -321,7 +321,7 @@ def compute_jacobians_xs(rnn_fun, points, inputs):
   """
   dFdh = jax.jacrev(rnn_fun)
   batch_dFdh = jax.jit(jax.vmap(dFdh, in_axes=(0,0)))
-  return batch_dFdh(points)
+  return batch_dFdh(points, inputs)
 
 def compute_eigenvalue_decomposition(Ms, sort_by='magnitude',
                                      do_compute_lefts=True):
