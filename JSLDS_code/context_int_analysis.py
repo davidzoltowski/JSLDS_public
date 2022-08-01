@@ -124,7 +124,8 @@ def get_sample_expansion_points_xstars(key, num_trials, num_samples, eval_batch_
 
   hiddens_approx_c = hiddens_approx_c_.reshape(-1,n)
   hstars_c = hstars_c_.reshape(-1,n)
-  return hiddens_approx_c, hstars_c
+  xstars_c = xstars_c_.reshape(-1, n)
+  return hiddens_approx_c, hstars_c, xstars_c
 
 def get_subspace_fixed_bias(params,rnn_fun, hiddens_approx_c, hstars_c,
                             context, ntimesteps,offset=2):
