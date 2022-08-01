@@ -16,10 +16,12 @@ def run_trials_fixed_bias(key,eval_batch_size, motions,
   m_hiddens = np.zeros((36,eval_batch_size,ntimesteps, n))
   m_hstars = np.zeros((36,eval_batch_size,ntimesteps, n))
   m_inputs = np.zeros((36, eval_batch_size,ntimesteps, u))
+  m_xstars = np.zeros((36,eval_batch_size,ntimesteps, u))
 
   c_hiddens = np.zeros((36, eval_batch_size,ntimesteps, n))
   c_hstars = np.zeros((36,eval_batch_size,ntimesteps, n))
   c_inputs = np.zeros((36, eval_batch_size,ntimesteps, u))
+  c_xstars = np.zeros((36, eval_batch_size, ntimesteps, u))
 
   i = 0
   for m in motions:
@@ -52,6 +54,7 @@ def run_trials_fixed_bias(key,eval_batch_size, motions,
       m_hiddens[i] = rnn_internals['hiddens']
       m_hstars[i] = rnn_internals['h_stars']
       m_inputs[i] = rnn_internals['inputs']
+      m_xstars[i] = rnn_internals['x_stars']
 
       #color context
       context = False
@@ -73,9 +76,10 @@ def run_trials_fixed_bias(key,eval_batch_size, motions,
       c_hiddens[i] = rnn_internals['hiddens']
       c_hstars[i] = rnn_internals['h_stars']
       c_inputs[i] = rnn_internals['inputs']
-      
+      c_xstars[i] = rnn_internals['x_stars']
+
       i +=1
-  return m_hiddens,m_hstars,m_inputs,c_hiddens,c_hstars,c_inputs
+  return m_hiddens,m_hstars,m_inputs,m_xstars,c_hiddens,c_hstars,c_inputs,c_xstars
 
 
 def get_reduce_inds_(key, batch_size, num_samples):
@@ -98,6 +102,25 @@ def get_sample_expansion_points(key, num_trials, num_samples, eval_batch_size,
   for i in range(num_trials):
     hiddens_approx_c_[i] = hiddens[i,reduce_inds[i]]
     hstars_c_[i] = hstars[i,reduce_inds[i]]
+
+  hiddens_approx_c = hiddens_approx_c_.reshape(-1,n)
+  hstars_c = hstars_c_.reshape(-1,n)
+  return hiddens_approx_c, hstars_c
+
+def get_sample_expansion_points_xstars(key, num_trials, num_samples, eval_batch_size,
+                                hiddens, hstars, xstars, ntimesteps,n,u):
+  """Get expansion points and states from sample trials. We use this
+  to speed up the eigendecompositions required to construct the subspace below """
+  key, skey = jax.random.split(key)
+  reduce_inds = get_reduce_inds(skey, num_trials, eval_batch_size, num_samples)
+
+  hiddens_approx_c_ = np.zeros((num_trials, num_samples, ntimesteps, n))
+  hstars_c_ = np.zeros((num_trials, num_samples, ntimesteps, n))
+  xstars_c_ = np.zeros((num_trials, num_samples, ntimesteps, u))
+  for i in range(num_trials):
+    hiddens_approx_c_[i] = hiddens[i,reduce_inds[i]]
+    hstars_c_[i] = hstars[i,reduce_inds[i]]
+    xstars_c_[i] = xstars[i,reduce_inds[i]]
 
   hiddens_approx_c = hiddens_approx_c_.reshape(-1,n)
   hstars_c = hstars_c_.reshape(-1,n)
@@ -136,7 +159,41 @@ def get_subspace_fixed_bias(params,rnn_fun, hiddens_approx_c, hstars_c,
 
   return eig_decomps_c, new_es_c, proj_mat_c, proj_hiddens_c, proj_hstars_c
 
+def get_subspace_fixed_bias_learn_xstar(params,rnn_fun, hiddens_approx_c, hstars_c,
+                            context, xstars_c, ntimesteps,offset=2):
 
+  """Computes the orthgonalized subspace """
+  if context == 'motion':
+    x_star = np.array([0,0,1,0])
+  elif context == 'color':
+    x_star = np.array([0,0,0,1])
+  
+  # rnn_fun_h = lambda h : rnn_fun(params['rnn'], h, x_star)
+  # hstar_jac = num_fps.compute_jacobians(rnn_fun_h, hstars_c)
+  rnn_fun_h = lambda h, x : rnn_fun(params['rnn'], h, x)
+  hstar_jac = num_fps.compute_jacobians_xs(rnn_fun_h, hstars_c, xstars_c)
+  import ipdb; ipdb.set_trace()
+  eig_decomps_c = num_fps.compute_eigenvalue_decomposition(hstar_jac, sort_by='real',
+                                    do_compute_lefts=True)
+  
+  new_es_c = np.arange(offset,ntimesteps)
+  for i in range(ntimesteps,hiddens_approx_c.shape[0],ntimesteps):
+    new_es_c = np.concatenate((new_es_c, np.arange(i+offset, i+ntimesteps)))
+
+  r1 = 0
+  for i in new_es_c:
+    r1 += eig_decomps_c[i]['R'][:,0]
+  r1 = r1/len(new_es_c)
+
+  b1 = params['rnn']['wI'][:,0]
+  b2 = params['rnn']['wI'][:,1]
+  c_axes = np.concatenate((r1[...,None], b1[...,None], b2[...,None]), axis=1)
+
+  proj_mat_c,_= np.linalg.qr(c_axes)
+  proj_hiddens_c = hiddens_approx_c[new_es_c] @ proj_mat_c
+  proj_hstars_c = hstars_c[new_es_c] @ proj_mat_c
+
+  return eig_decomps_c, new_es_c, proj_mat_c, proj_hiddens_c, proj_hstars_c
 
 def get_subspace(params,rnn_fun,inputs, hiddens_approx, hstars, context, 
                  ntimesteps,offset=2):

@@ -309,6 +309,19 @@ def compute_jacobians(rnn_fun, points):
   batch_dFdh = jax.jit(jax.vmap(dFdh, in_axes=(0,)))
   return batch_dFdh(points)
 
+def compute_jacobians_xs(rnn_fun, points, inputs):
+  """Compute the jacobians of the rnn_fun at the points.
+  This function uses JAX for the jacobian, and is computed on-device.
+  Arguments:
+    rnn_fun: RNN one step update function for a single hidden state vector
+      h_t -> h_t+1
+    points: np array npoints x dim, eval jacobian at this point.
+  Returns: 
+    npoints number of jacobians, np array with shape npoints x dim x dim
+  """
+  dFdh = jax.jacrev(rnn_fun)
+  batch_dFdh = jax.jit(jax.vmap(dFdh, in_axes=(0,1)))
+  return batch_dFdh(points)
 
 def compute_eigenvalue_decomposition(Ms, sort_by='magnitude',
                                      do_compute_lefts=True):
