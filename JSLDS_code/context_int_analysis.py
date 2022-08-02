@@ -246,6 +246,7 @@ def get_subspace_xstar(params,rnn_fun,inputs, hiddens_approx, hstars, xstars, co
   
   hiddens_approx_c = hiddens_approx[inds]
   hstars_c = hstars[inds]
+  xstars_c = xstars[inds]
   # rnn_fun_h = lambda h : rnn_fun(params['rnn'], h, x_star)
   # hstar_jac = num_fps.compute_jacobians(rnn_fun_h, hstars_c)
   rnn_fun_h = lambda h, x : rnn_fun(params['rnn'], h, x)
