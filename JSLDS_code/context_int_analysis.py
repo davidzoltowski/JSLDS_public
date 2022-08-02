@@ -233,6 +233,45 @@ def get_subspace(params,rnn_fun,inputs, hiddens_approx, hstars, context,
 
   return eig_decomps_c, new_es_c, proj_mat_c, proj_hiddens_c, proj_hstars_c
 
+def get_subspace_xstar(params,rnn_fun,inputs, hiddens_approx, hstars, xstars, context, 
+                 ntimesteps,offset=2):
+  """Computes the orthogonalized subspace when the biases are not fixed """
+  if context == 'motion':
+    inds = np.argwhere(inputs[:,2]==1)[:,0]
+    x_star = np.array([0,0,1,0])
+  elif context == 'color':
+    inds = np.argwhere(inputs[:,2]==0)[:,0]
+    x_star = np.array([0,0,0,1])
+  
+  
+  hiddens_approx_c = hiddens_approx[inds]
+  hstars_c = hstars[inds]
+  # rnn_fun_h = lambda h : rnn_fun(params['rnn'], h, x_star)
+  # hstar_jac = num_fps.compute_jacobians(rnn_fun_h, hstars_c)
+  rnn_fun_h = lambda h, x : rnn_fun(params['rnn'], h, x)
+  hstar_jac = num_fps.compute_jacobians_xs(rnn_fun_h, hstars_c, xstars)
+  eig_decomps_c = num_fps.compute_eigenvalue_decomposition(hstar_jac,
+                                                           sort_by='real',
+                                                        do_compute_lefts=True)
+  
+  new_es_c = np.arange(offset,ntimesteps)
+  for i in range(ntimesteps,hiddens_approx_c.shape[0],ntimesteps):
+    new_es_c = np.concatenate((new_es_c, np.arange(i+offset, i+ntimesteps)))
+
+  r1 = 0
+  for i in new_es_c:
+    r1 += eig_decomps_c[i]['R'][:,0]
+  r1 = r1/len(new_es_c)
+
+  b1 = params['rnn']['wI'][:,0]
+  b2 = params['rnn']['wI'][:,1]
+  c_axes = np.concatenate((r1[...,None], b1[...,None], b2[...,None]), axis=1)
+
+  proj_mat_c,_= np.linalg.qr(c_axes)
+  proj_hiddens_c = hiddens_approx_c[new_es_c] @ proj_mat_c
+  proj_hstars_c = hstars_c[new_es_c] @ proj_mat_c
+
+  return eig_decomps_c, new_es_c, proj_mat_c, proj_hiddens_c, proj_hstars_c
 
 def selection_vector_plot(offset1, offset2, new_es_c1, new_es_c2,
                           proj_mat_c1, proj_mat_c2,
