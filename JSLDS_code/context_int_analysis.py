@@ -250,7 +250,7 @@ def get_subspace_xstar(params,rnn_fun,inputs, hiddens_approx, hstars, xstars, co
   # rnn_fun_h = lambda h : rnn_fun(params['rnn'], h, x_star)
   # hstar_jac = num_fps.compute_jacobians(rnn_fun_h, hstars_c)
   rnn_fun_h = lambda h, x : rnn_fun(params['rnn'], h, x)
-  hstar_jac = num_fps.compute_jacobians_xs(rnn_fun_h, hstars_c, xstars)
+  hstar_jac = num_fps.compute_jacobians_xs(rnn_fun_h, hstars_c, xstars_c)
   eig_decomps_c = num_fps.compute_eigenvalue_decomposition(hstar_jac,
                                                            sort_by='real',
                                                         do_compute_lefts=True)
