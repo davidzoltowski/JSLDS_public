@@ -28,10 +28,11 @@ def build_input_and_target_sine_wave(input_params, key):
   # Generate random frequency 
   key, skey = random.split(key)
   freq = minf + maxf * random.randint(skey, shape=(), minval=minf, maxval=maxf)
-  inputs = freq * np.ones((ntime, 1))
+  inputs_tx1 = freq * np.ones((ntime, 1))
   targets = np.sin(freq * np.arange(ntime) * dt)
+  targets_tx1 = np.expand_dims(targets, axis=1)
   targets_mask = np.expand_dims(np.arange(ntime), axis=1)
-  return inputs, targets, targets_mask
+  return inputs_tx1, targets_tx1, targets_mask
 
 
 # Now batch it and jit.
