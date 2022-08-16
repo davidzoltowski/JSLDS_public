@@ -362,6 +362,13 @@ def jslds_rnn_x_star_context(rnn, params, h_tm1, h_approx_tm1, x_t):
   x_star = x_star.at[2:4].add(x_t[2:4])
   return staylor_rnn(rnn, params, 1, h_tm1, h_approx_tm1, x_t, x_star)
 
+def jslds_rnn_sine_wave(rnn, params, h_tm1, h_approx_tm1, x_t):
+  """define x_star to take static context into account 
+  (for context integration) """
+  x_star = jnp.zeros_like(x_t)
+  x_star = x_star.at[0].add(x_t[0])
+  return staylor_rnn(rnn, params, 1, h_tm1, h_approx_tm1, x_t, x_star)
+
 def jslds_rnn_scan(rnn, jslds_rnn, params, state, x_t):
   """Run the JSLDS network 1 step adapting the inputs and outputs for scan."""
   h_tm1, h_approx_tm1 = state
